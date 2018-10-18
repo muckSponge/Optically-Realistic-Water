@@ -1,0 +1,53 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 6
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_Name: WaterSurface
+  m_Shader: {fileID: 4800000, guid: 6cdea64d237bb4dfa80eddee7ad81c28, type: 3}
+  m_ShaderKeywords: 
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _HeightTex:
+        m_Texture: {fileID: 2800000, guid: 86b0a0e99191f4d88a704b569144426d, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _NormalTex:
+        m_Texture: {fileID: 2800000, guid: eca2a7fa5744c453b8a3dd4d9549b767, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _ReflectionTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _WaterDepthTex:
+        m_Texture: {fileID: 2800000, guid: 756446f7a0bd14438bd73b8cde7fb0cd, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Floats:
+    - _Aberration: 0.002
+    - _AberrationAmount: 0.002
+    - _Bumpiness: 0.06
+    - _Choppy: 0.8
+    - _ReflBump: 0.04
+    - _ReflDistortionAmount: 0.03
+    - _RefrBump: 0.03
+    - _RefrDistortionAmount: 0.04
+    - _ScatterAmount: 3.5
+    - _Visibility: 28
+    - _WaterLevel: 0
+    - _WaveScale: 1
+    - _WindSpeed: 0.6
+    m_Colors:
+    - _ScatterColor: {r: 0, g: 1, b: 0.95, a: 1}
+    - _WindDirection: {r: -0.5, g: -0.8, b: 0, a: 0}

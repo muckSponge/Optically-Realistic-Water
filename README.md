@@ -1,5 +1,5 @@
 # Optically Realistic Water
-A Unity port of Martins Uptis' fantastic [ocean water shader](https://devlog-martinsh.blogspot.com/2013/09/waterunderwater-sky-shader-update-02.html), which was originally coded in GLSL for Blender.
+A Unity port of Martins Upitis' fantastic [ocean water shader](https://devlog-martinsh.blogspot.com/2013/09/waterunderwater-sky-shader-update-02.html), which was originally coded in GLSL for Blender.
 
 ![water](https://user-images.githubusercontent.com/5405629/47149964-7a570800-d318-11e8-9420-74cf4619b35e.jpg)
 

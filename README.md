@@ -1,6 +1,8 @@
 # Optically Realistic Water
 A Unity port of Martins Uptis' fantastic [ocean water shader](https://devlog-martinsh.blogspot.com/2013/09/waterunderwater-sky-shader-update-02.html), which was originally coded in GLSL for Blender.
 
+![water](https://user-images.githubusercontent.com/5405629/47149964-7a570800-d318-11e8-9420-74cf4619b35e.jpg)
+
 ## Contents
 The shader actually consists of two parts:
 * WaterSurface.shader
@@ -23,6 +25,7 @@ Just like in Martins' project, you can click and drag the sun into any position 
 * View and light ray color extinction based on water color and sunlight
 
 ## Additional features/changes
+* Refraction is masked based on depth to prevent foreground distortion artefacts
 * Normal map intensity fades out with distance to prevent excessive distortion artefacts
 * Clip plane offset depends on camera distance from water plane, which reduces artefacts when close to surface
 * Some shader calculations moved into scripts (sun colour, for example)

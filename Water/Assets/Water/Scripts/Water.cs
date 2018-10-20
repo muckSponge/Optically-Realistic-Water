@@ -40,11 +40,7 @@ public class Water : MonoBehaviour
 		if(!surfaceMaterial)
 			return;
 		
-		UpdateMaterial();
-		
-		var rend = GetComponent<Renderer>();
-		
-		if(!enabled || !rend || !rend.sharedMaterial || !rend.enabled)
+		if(!enabled)
 			return;
  
 		Camera cam = Camera.current;
@@ -164,12 +160,20 @@ public class Water : MonoBehaviour
 		Camera.onPreRender += PreRender;
 	}
 
+	void LateUpdate()
+	{
+		UpdateMaterial();
+	}
+
 	void PreRender(Camera c)
 	{
-		// only update _WorldSpaceCameraPos2 if camera is not a reflection camera
-		// we do it here because it applies to underwater, even if surface isn't rendered
-		if(groundMaterial && c != reflectionCamera)
-			groundMaterial.SetVector("_WorldSpaceCameraPos2", c.transform.position);
+		// ignore reflection camera
+		if(c != reflectionCamera)
+		{
+			// cache camera position so reflected shader has access to it
+			if(groundMaterial && c != reflectionCamera)
+				groundMaterial.SetVector("_WorldSpaceCameraPos2", c.transform.position);
+		}
 	}
  
 	void OnDisable()

@@ -382,6 +382,11 @@ Prefab:
       propertyPath: m_RootOrder
       value: 4
       objectReference: {fileID: 0}
+    - target: {fileID: 114451531188865348, guid: 20de1bf9e984c4606a378e2e88960fe2,
+        type: 2}
+      propertyPath: sunLight
+      value: 
+      objectReference: {fileID: 170076734}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 20de1bf9e984c4606a378e2e88960fe2, type: 2}
   m_IsPrefabAsset: 0
@@ -431,6 +436,10 @@ Prefab:
     - target: {fileID: 100000, guid: 230faa639d2cf4ee98a023a6526b47ff, type: 3}
       propertyPath: m_Name
       value: Terrain
+      objectReference: {fileID: 0}
+    - target: {fileID: 100000, guid: 230faa639d2cf4ee98a023a6526b47ff, type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 230faa639d2cf4ee98a023a6526b47ff, type: 3}

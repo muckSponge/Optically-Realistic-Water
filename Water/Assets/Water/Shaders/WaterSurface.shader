@@ -1,21 +1,5 @@
 ﻿Shader "Water/WaterSurface"
 {
-	Properties
-	{
-		_NormalTex("Normal", 2D) = "bump" {}
-		_HeightTex("Height", 2D) = "black" {}
-		
-		_Visibility("Visibility", Float) = 28
-		_WindDirection("Wind Direction", Vector) = (.5, -.8, 0, 0)
-		_WindSpeed("Wind Speed", Float) = .6
-		_WaveScale("Wave Scale", Float) = 1
-		_ScatterAmount("Scatter Amount", Float) = 3.5
-		_ScatterColor("Scatter Color", Color) = (0.0, 1.0, 0.95, 1)
-		
-		_ReflDistortionAmount("Reflection Distortion Amount", Float) = .04
-		_RefrDistortionAmount("Refraction Distortion Amount", Float) = .03
-		_AberrationAmount("Aberration Amount", Float) = .002
-	}
 	SubShader
 	{
 		Tags { "RenderType"="Overlay" "Queue"="Transparent" }
@@ -50,6 +34,7 @@
 				float4 vertex : SV_POSITION;
 				float3 wPosition : TEXCOORD0;
 				float4 sPosition : TEXCOORD1;
+				float3 viewDir : TEXCOORD2;
 			};
 			
 			static const float2 bigWaves = float2(0.3, 0.3); // strength of big waves
@@ -72,7 +57,9 @@
 			float _RefrDistortionAmount;
 			float _AberrationAmount;
 			float3 _WaterExtinction;
-			float3 _SunExtinction;
+			float3 _SunTransmittance;
+			float _SunFade;
+			float _ScatterFade;
 						
 			v2f vert(appdata v)
 			{
@@ -81,6 +68,7 @@
 				o.wPosition = mul(unity_ObjectToWorld, v.vertex).xyz;
 				o.vertex = UnityObjectToClipPos(v.vertex);
 				o.sPosition = ComputeScreenPos(o.vertex);
+				o.viewDir = _WorldSpaceCameraPos - o.wPosition;
 				
 				return o;
 			}
@@ -88,22 +76,20 @@
             float fresnel_dielectric(float3 Incoming, float3 Normal, float eta)
             {
                 // compute fresnel reflectance without explicitly computing
-                //   the refracted direction
+                // the refracted direction
                 float c = abs(dot(Incoming, Normal));
                 float g = eta * eta - 1.0 + c * c;
-                float result;
             
                 if(g > 0.0)
                 {
                     g = sqrt(g);
                     float A = (g - c) / (g + c);
-                    float B = (c * (g + c)- 1.0) / (c * (g - c) + 1.0);
-                    result = 0.5 * A * A * (1.0 + B * B);
+                    float B = (c * (g + c) - 1.0) / (c * (g - c) + 1.0);
+                    
+                    return 0.5 * A * A * (1.0 + B * B);
                 }
-                else
-                    result = 1.0;  // TIR (no refracted component)
-            
-                return result;
+                
+                return 1.0; // TIR (no refracted component)
             }
 			
 			fixed4 frag(v2f i) : SV_Target
@@ -112,36 +98,33 @@
 			    fragCoord = clamp(fragCoord, 0.002, 0.998);
 			    
 			    bool aboveWater = _WorldSpaceCameraPos.y > 0.0;
-                
-                float scale = _WaveScale;
-                float time = _Time.y;
-                                
+                                                
                 float normalFade = 1 - min(exp(-i.sPosition.w / 40), 1);           
 			
-			    float2 nCoord = i.wPosition.xz * scale * 0.04 + _WindDirection * time * _WindSpeed * 0.04;
-                float3 normal0 = 2.0 * tex2D(_NormalTex, nCoord + float2(-time * 0.015, -time * 0.005)).xyz - 1.0;
-                nCoord = i.wPosition.xz * scale * 0.1 + _WindDirection * time * _WindSpeed * 0.08;
-                float3 normal1 = 2.0 * tex2D(_NormalTex, nCoord + float2(time * 0.020, time * 0.015)).xyz - 1.0;
+			    float2 nCoord = i.wPosition.xz * _WaveScale * 0.04 + _WindDirection * _Time.y * _WindSpeed * 0.04;
+                float3 normal0 = 2.0 * tex2D(_NormalTex, nCoord + float2(-_Time.y * 0.015, -_Time.y * 0.005)).xyz - 1.0;
+                nCoord = i.wPosition.xz * _WaveScale * 0.1 + _WindDirection * _Time.y * _WindSpeed * 0.08;
+                float3 normal1 = 2.0 * tex2D(_NormalTex, nCoord + float2(_Time.y * 0.020, _Time.y * 0.015)).xyz - 1.0;
              
-                nCoord = i.wPosition.xz * scale * 0.25 + _WindDirection * time * _WindSpeed * 0.07;
-                float3 normal2 = 2.0 * tex2D(_NormalTex, nCoord + float2(-time * 0.04, -time * 0.03)).xyz - 1.0;
-                nCoord = i.wPosition.xz * scale * 0.5 + _WindDirection * time * _WindSpeed * 0.09;
-                float3 normal3 = 2.0 * tex2D(_NormalTex, nCoord + float2(time * 0.03, time * 0.04)).xyz - 1.0;
+                nCoord = i.wPosition.xz * _WaveScale * 0.25 + _WindDirection * _Time.y * _WindSpeed * 0.07;
+                float3 normal2 = 2.0 * tex2D(_NormalTex, nCoord + float2(-_Time.y * 0.04, -_Time.y * 0.03)).xyz - 1.0;
+                nCoord = i.wPosition.xz * _WaveScale * 0.5 + _WindDirection * _Time.y * _WindSpeed * 0.09;
+                float3 normal3 = 2.0 * tex2D(_NormalTex, nCoord + float2(_Time.y * 0.03, _Time.y * 0.04)).xyz - 1.0;
               
-                nCoord = i.wPosition.xz * scale * 1.0 + _WindDirection * time * _WindSpeed * 0.4;
-                float3 normal4 = 2.0 * tex2D(_NormalTex, nCoord + float2(-time * 0.02, time * 0.1)).xyz - 1.0;  
-                nCoord = i.wPosition.xz * scale * 2.0 + _WindDirection * time * _WindSpeed * 0.7;
-                float3 normal5 = 2.0 * tex2D(_NormalTex, nCoord + float2(time * 0.1, -time * 0.06)).xyz - 1.0;
+                nCoord = i.wPosition.xz * _WaveScale * 1.0 + _WindDirection * _Time.y * _WindSpeed * 0.4;
+                float3 normal4 = 2.0 * tex2D(_NormalTex, nCoord + float2(-_Time.y * 0.02, _Time.y * 0.1)).xyz - 1.0;  
+                nCoord = i.wPosition.xz * _WaveScale * 2.0 + _WindDirection * _Time.y * _WindSpeed * 0.7;
+                float3 normal5 = 2.0 * tex2D(_NormalTex, nCoord + float2(_Time.y * 0.1, -_Time.y * 0.06)).xyz - 1.0;
                 
                 float3 normal = normalize(normal0 * bigWaves.x + normal1 * bigWaves.y +
                                         normal2 * midWaves.x + normal3 * midWaves.y +
                                         normal4 * smallWaves.x + normal5 * smallWaves.y);
                
                 float3 nVec = lerp(normal.xzy, float3(0, 1, 0), normalFade); // converting normals to tangent space 
-                float3 vVec = normalize(_WorldSpaceCameraPos - i.wPosition); // todo: calc in vertex shader
+                float3 vVec = normalize(i.viewDir);
                 float3 lVec = _WorldSpaceLightPos0.xyz;
 			    
-			    //normal for light scattering
+			    // normal for light scattering
                 float3 lNormal = normalize(normal0 * bigWaves.x * 0.5 + normal1 * bigWaves.y * 0.5 +
                                         normal2 * midWaves.x * 0.1 + normal3 * midWaves.y * 0.1 +
                                         normal4 * smallWaves.x * 0.1 + normal5 * smallWaves.y * 0.1);
@@ -149,13 +132,9 @@
                                 
                 float3 lR = reflect(-lVec, lNormal);
                 
-                float sunFade = saturate((.1 + _WorldSpaceLightPos0.y) * 10); // see WaterUnder
-                float scatterFade = saturate((.15 + _WorldSpaceLightPos0.y) * 4); // as above
-                float3 sunPenetration = saturate(1.0 - exp(-_WorldSpaceLightPos0.y * _SunExtinction));
-                
                 float s = max(dot(lR, vVec) * 2.0 - 1.2, 0);
-                float lightScatter = saturate((saturate(dot(-lVec, lNormal) * 0.7 + 0.3) * s) * _ScatterAmount) * sunFade * saturate(1.0 - exp(-_WorldSpaceLightPos0.y));
-                float3 scatterColor = lerp(_ScatterColor * float3(1.0, 0.4, 0.0), _ScatterColor, sunPenetration);
+                float lightScatter = saturate((saturate(dot(-lVec, lNormal) * 0.7 + 0.3) * s) * _ScatterAmount) * _SunFade * saturate(1.0 - exp(-_WorldSpaceLightPos0.y));
+                float3 scatterColor = lerp(_ScatterColor * float3(1.0, 0.4, 0.0), _ScatterColor, _SunTransmittance);
             
                 // fresnel term
                 float ior = aboveWater ? (1.333 / 1.0) : (1.0 / 1.333); // air to water; water to air
@@ -181,9 +160,9 @@
                 float distortFade = saturate((refractedDepth - surfaceDepth) * 4);
                 
                 float3 refraction;
-                refraction.r = tex2D(_RefractionTex, fragCoord - (refrOffset - rcoord * _AberrationAmount * -1) * distortFade).r;
+                refraction.r = tex2D(_RefractionTex, fragCoord - (refrOffset - rcoord * -_AberrationAmount) * distortFade).r;
                 refraction.g = tex2D(_RefractionTex, fragCoord - refrOffset * distortFade).g;
-                refraction.b = tex2D(_RefractionTex, fragCoord - (refrOffset - rcoord * _AberrationAmount * 1) * distortFade).b;
+                refraction.b = tex2D(_RefractionTex, fragCoord - (refrOffset - rcoord * _AberrationAmount) * distortFade).b;
                                   
                 float waterSunGradient = dot(vVec, -_WorldSpaceLightPos0.xyz);
                 waterSunGradient = saturate(pow(waterSunGradient * 0.7 + 0.3, 2.0));  
@@ -194,7 +173,7 @@
                 waterGradient = clamp((waterGradient * 0.5 + 0.5), 0.2, 1.0);
                 float3 watercolor = (float3(0.0078, 0.5176, 0.700) + waterSunColor) * waterGradient * 1.5;
                 
-                watercolor = lerp(watercolor * 0.3 * sunFade, watercolor, sunPenetration);
+                watercolor = lerp(watercolor * 0.3 * _SunFade, watercolor, _SunTransmittance);
                 
                 float fog = aboveWater ? 1.0 : surfaceDepth / _Visibility;
                 
@@ -213,7 +192,7 @@
                 else
                 {
                     color = lerp(min(refraction * 1.2, 1), reflection, fresnel);
-                    color = lerp(color, watercolor * darkness * scatterFade, saturate(fog / _WaterExtinction));
+                    color = lerp(color, watercolor * darkness * _ScatterFade, saturate(fog / _WaterExtinction));
                 }
                 
                 return float4(float3(color + (_LightColor0 * specular)), 1.0);
@@ -229,7 +208,7 @@ varying vec4 fragPos; //fragment coordinates
 varying vec3 T, B, N; //tangent binormal normal
 varying vec3 viewPos;
 varying vec3 worldPos;
-uniform float timer;
+uniform float _Time.yr;
 uniform sampler2D reflectionSampler,refractionSampler, depthSampler, normalSampler;
 uniform vec3 cameraPos;
 
@@ -241,7 +220,7 @@ float windSpeed = 0.2; //wind speed
 
 float visibility = 28.0;
 
-float scale = 1.0; //overall wave scale
+float _WaveScale = 1.0; //overall wave _WaveScale
 
 vec2 bigWaves = vec2(0.3, 0.3); //strength of big waves
 vec2 midWaves = vec2(0.3, 0.15); //strength of middle sized waves
@@ -308,10 +287,10 @@ void main() {
     bump = -bump*clamp(1.0-coast+0.0,0.0,1.0);
     bump = bump*clamp(1.0-coast1+0.0,0.0,1.0);
     
-    //scale = scale - (coast*0.1);
-    //scale = scale * (coast*0.1+0.9);
-    float time = timer - (coast)*80.0; //hmmm
-    //timer = timer * (coast*0.5+0.5)*1.5;
+    //_WaveScale = _WaveScale - (coast*0.1);
+    //_WaveScale = _WaveScale * (coast*0.1+0.9);
+    float _Time.y = _Time.yr - (coast)*80.0; //hmmm
+    //_Time.yr = _Time.yr * (coast*0.5+0.5)*1.5;
     //smallWaves.x = smallWaves.x + (0.1*coast);
     //smallWaves.y = smallWaves.y + (0.1*coast);
     //bigWaves.x = bigWaves.x - (0.1*(1.0-coast));
@@ -322,20 +301,20 @@ void main() {
     
     vec3 atmopherefog = clamp(1.0-exp(-atmosphere/mudext),0.0,1.0);
     
-  	nCoord = worldPos.xy * (scale * 0.04) + windDir * time * (windSpeed*0.04);
-	vec3 normal0 = 2.0 * texture2D(normalSampler, nCoord + vec2(-time*0.015,-time*0.005)).rgb - 1.0;
-	nCoord = worldPos.xy * (scale * 0.1) + windDir * time * (windSpeed*0.08)-(normal0.xy/normal0.zz)*choppy;
-	vec3 normal1 = 2.0 * texture2D(normalSampler, nCoord + vec2(+time*0.020,+time*0.015)).rgb - 1.0;
+  	nCoord = worldPos.xy * (_WaveScale * 0.04) + windDir * _Time.y * (windSpeed*0.04);
+	vec3 normal0 = 2.0 * texture2D(normalSampler, nCoord + vec2(-_Time.y*0.015,-_Time.y*0.005)).rgb - 1.0;
+	nCoord = worldPos.xy * (_WaveScale * 0.1) + windDir * _Time.y * (windSpeed*0.08)-(normal0.xy/normal0.zz)*choppy;
+	vec3 normal1 = 2.0 * texture2D(normalSampler, nCoord + vec2(+_Time.y*0.020,+_Time.y*0.015)).rgb - 1.0;
  
- 	nCoord = worldPos.xy * (scale * 0.25) + windDir * time * (windSpeed*0.07)-(normal1.xy/normal1.zz)*choppy;
-	vec3 normal2 = 2.0 * texture2D(normalSampler, nCoord + vec2(-time*0.04,-time*0.03)).rgb - 1.0;
-	nCoord = worldPos.xy * (scale * 0.5) + windDir * time * (windSpeed*0.09)-(normal2.xy/normal2.z)*choppy;
-	vec3 normal3 = 2.0 * texture2D(normalSampler, nCoord + vec2(+time*0.03,+time*0.04)).rgb - 1.0;
+ 	nCoord = worldPos.xy * (_WaveScale * 0.25) + windDir * _Time.y * (windSpeed*0.07)-(normal1.xy/normal1.zz)*choppy;
+	vec3 normal2 = 2.0 * texture2D(normalSampler, nCoord + vec2(-_Time.y*0.04,-_Time.y*0.03)).rgb - 1.0;
+	nCoord = worldPos.xy * (_WaveScale * 0.5) + windDir * _Time.y * (windSpeed*0.09)-(normal2.xy/normal2.z)*choppy;
+	vec3 normal3 = 2.0 * texture2D(normalSampler, nCoord + vec2(+_Time.y*0.03,+_Time.y*0.04)).rgb - 1.0;
   
-  	nCoord = worldPos.xy * (scale* 1.0) + windDir * time * (windSpeed*0.4)-(normal3.xy/normal3.zz)*choppy;
-	vec3 normal4 = 2.0 * texture2D(normalSampler, nCoord + vec2(-time*0.02,+time*0.1)).rgb - 1.0;  
-    nCoord = worldPos.xy * (scale * 2.0) + windDir * time * (windSpeed*0.7)-(normal4.xy/normal4.zz)*choppy;
-    vec3 normal5 = 2.0 * texture2D(normalSampler, nCoord + vec2(+time*0.1,-time*0.06)).rgb - 1.0;
+  	nCoord = worldPos.xy * (_WaveScale* 1.0) + windDir * _Time.y * (windSpeed*0.4)-(normal3.xy/normal3.zz)*choppy;
+	vec3 normal4 = 2.0 * texture2D(normalSampler, nCoord + vec2(-_Time.y*0.02,+_Time.y*0.1)).rgb - 1.0;  
+    nCoord = worldPos.xy * (_WaveScale * 2.0) + windDir * _Time.y * (windSpeed*0.7)-(normal4.xy/normal4.zz)*choppy;
+    vec3 normal5 = 2.0 * texture2D(normalSampler, nCoord + vec2(+_Time.y*0.1,-_Time.y*0.06)).rgb - 1.0;
 
 	
 	

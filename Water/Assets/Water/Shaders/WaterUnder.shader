@@ -3,11 +3,6 @@
 	Properties
 	{
 		_MainTex("Texture", 2D) = "white" {}
-		_NormalTex("Normal", 2D) = "bump" {}
-		_Visibility("Visibility", Float) = 28
-		_WindDirection("Wind Direction", Vector) = (.5, -.8, 0, 0)
-		_WindSpeed("Wind Speed", Float) = .6
-		_WaveScale("Wave Scale", Float) = 1
 	}
 	SubShader
 	{
@@ -35,9 +30,10 @@
 			struct v2f
 			{
 				float4 vertex : SV_POSITION;
-				float2 uv : TEXCOORD0;
 				float3 wNormal : NORMAL;
-				float3 wPosition : TEXCOORD2;
+				float2 uv : TEXCOORD0;
+				float3 wPosition : TEXCOORD1;
+				float3 viewDir : TEXCOORD2;
 			};
 
 			sampler2D _MainTex;
@@ -51,8 +47,10 @@
 			float _WaveScale;
 			float3 _MudExtinction;
 			float3 _WaterExtinction;
-			float3 _SunExtinction;
+			float3 _SunTransmittance;
 			float3 _WorldSpaceCameraPos2;
+			float _SunFade;
+			float _ScatterFade;
 			
 			v2f vert(appdata v)
 			{
@@ -60,8 +58,9 @@
 				o.vertex = UnityObjectToClipPos(v.vertex);
 				o.wPosition = mul(unity_ObjectToWorld, v.vertex).xyz;
 				o.wNormal = UnityObjectToWorldNormal(v.normal);
-				
 				o.uv = TRANSFORM_TEX(v.uv, _MainTex);
+				o.viewDir = _WorldSpaceCameraPos - o.wPosition;
+				
 				return o;
 			}
             
@@ -104,7 +103,7 @@
 			
 			fixed4 frag(v2f i) : SV_Target
 			{
-			    float3 vVec = normalize(_WorldSpaceCameraPos - i.wPosition);
+			    float3 vVec = normalize(i.viewDir);
 			
 			    float waterSunGradient = dot(vVec, -_WorldSpaceLightPos0.xyz);
                 waterSunGradient = max(pow(waterSunGradient * 0.7 + 0.3, 2.0), 0.0);
@@ -119,30 +118,20 @@
                 waterSunColor = aboveWater ? waterSunColor * 0.25 : waterSunColor * 0.5;
                 
                 float3 waterColor = (float3(0.0078, 0.5176, 0.700) + waterSunColor) * waterGradient * 1.5;
-			    
 			    float3 fragCoord = float3(i.vertex.xyz);
-
                 float2 TexCoord = i.uv;
                 float3 normal = i.wNormal;
-                
-                float3 waterEyePos = intercept(i.wPosition, _WorldSpaceCameraPos - i.wPosition, float3(0.0, 1.0, 0.0), _WaterLevel);
-                
+                float3 waterEyePos = intercept(i.wPosition, vVec, float3(0.0, 1.0, 0.0), _WaterLevel);
                 float3 diffuse = tex2D(_MainTex, i.uv);     
-            
                 float NdotL = max(dot(normal, _WorldSpaceLightPos0.xyz), 0.0);
-            
-                float sunFade = saturate((.1 + _WorldSpaceLightPos0.y) * 10);
-                float scatterFade = saturate((.15 + _WorldSpaceLightPos0.y) * 4);
-                float3 sunPenetration = saturate(1.0 - exp(-_WorldSpaceLightPos0.y * _SunExtinction));
-                float3 sunLight = _LightColor0;//_LightColor0 * lerp(float3(1.0, 0.5, 0.2), 1, sunPenetration);
-                sunLight *= NdotL * sunFade;
+                float3 sunLight = _LightColor0 * NdotL * _SunFade;
                 
-                //sky illumination
+                // sky illumination
                 float skyBright = max(dot(normal, float3(0.0, 1.0, 0.0)) * 0.5 + 0.5, 0.0);
-                float3 skyLight = lerp(float3(1.0, 0.5, 0.0) * 0.05, float3(0.2, 0.5, 1.0) * 1.5, sunPenetration);
+                float3 skyLight = lerp(float3(1.0, 0.5, 0.0) * 0.05, float3(0.2, 0.5, 1.0) * 1.5, _SunTransmittance);
                 skyLight *= skyBright;
             
-                //ground illumination
+                // ground illumination
                 float groundBright = max(dot(normal, float3(0.0, -1.0, 0.0)) * 0.5 + 0.5, 0.0);   
                 float sunLerp = saturate(1.0 - exp(-_WorldSpaceLightPos0.y));
                 float3 groundLight = .3 * sunLerp;
@@ -155,14 +144,15 @@
                 float topfog = length(waterEyePos - i.wPosition) / _Visibility;
                 topfog = saturate(topfog);
                 
-                float underfog = length(_WorldSpaceCameraPos - i.wPosition) / _Visibility;
+                float viewDepth = length(i.viewDir);
+                
+                float underfog = viewDepth / _Visibility;
                 underfog = saturate(underfog);
             
                 float depth = waterEyePos.y - i.wPosition.y; // water depth
             
-                float far = length(_WorldSpaceCameraPos - i.wPosition) / 1000.0;
+                float far = viewDepth / 1000.0;
                 float shorecut = aboveWater ? smoothstep(-0.001, 0.001, depth) : smoothstep(-5.0 * max(far, 0.0001), -4.0 * max(far, 0.0001), depth);
-                
                 float shorewetcut = smoothstep(-0.18, -0.000, depth + 0.01);
                 
                 depth /= _Visibility;
@@ -175,7 +165,7 @@
                 darkness = lerp(1.0, saturate((_WorldSpaceCameraPos.y + darkness) / darkness), shorecut);
                 
                 float fogdarkness = _Visibility * 2.0;
-                fogdarkness = lerp(1.0, saturate((_WorldSpaceCameraPos.y + fogdarkness) / fogdarkness), shorecut) * scatterFade;
+                fogdarkness = lerp(1.0, saturate((_WorldSpaceCameraPos.y + fogdarkness) / fogdarkness), shorecut) * _ScatterFade;
                 
                 // caustics
                 float3 causticPos = intercept(i.wPosition, _WorldSpaceLightPos0.xyz, float3(0.0, 1.0, 0.0), _WaterLevel);
@@ -192,14 +182,14 @@
              
                 float causticR = 1.0 - perturb(_NormalTex, causticPos.xz, causticdepth).z;
                     
-                float3 caustics = saturate(pow(causticR * 5.5, 5.5 * causticdepth)) * NdotL * sunFade * causticdepth;
+                float3 caustics = saturate(pow(causticR * 5.5, 5.5 * causticdepth)) * NdotL * _SunFade * causticdepth;
                 
                 // not yet implemented
                 //if(causticFringe)
                 //{
                 //    float causticG = 1.0-perturb(NormalSampler,causticPos.st+(1.0-causticdepth)*aberration,causticdepth).z;
                 //    float causticB = 1.0-perturb(NormalSampler,causticPos.st+(1.0-causticdepth)*aberration*2.0,causticdepth).z;
-                //    caustics = clamp(pow(vec3(causticR,causticG,causticB)*5.5,vec3(5.5*causticdepth)),0.0,1.0)*NdotL*sunFade*causticdepth;
+                //    caustics = clamp(pow(vec3(causticR,causticG,causticB)*5.5,vec3(5.5*causticdepth)),0.0,1.0)*NdotL*_SunFade*causticdepth;
                 //}
                 
                 float3 underwaterSunLight = saturate((sunLight + 0.9) - (1.0 - caustics)) * causticdepth + (sunLight * caustics);
@@ -209,11 +199,11 @@
                 skyLight = lerp(skyLight, skyLight * waterColor, waterPenetration);
                 groundLight = lerp(groundLight, groundLight * waterColor, waterPenetration);
                 
-                sunLight = lerp(sunLight, lerp(underwaterSunLight , (waterColor * 0.8 + 0.4) * sunFade, underwaterFresnel), shorecut);
+                sunLight = lerp(sunLight, lerp(underwaterSunLight , (waterColor * 0.8 + 0.4) * _SunFade, underwaterFresnel), shorecut);
                 
                 float3 color = float3(sunLight + skyLight * 0.7 + groundLight * 0.8) * darkness;
                 
-                waterColor = lerp(waterColor * 0.3 * sunFade, waterColor, sunPenetration);
+                waterColor = lerp(waterColor * 0.3 * _SunFade, waterColor, _SunTransmittance);
                                 
                 float3 fogging = lerp((diffuse * 0.2 + 0.8) * lerp(float3(1.2, 0.95, 0.58) * 0.8, float3(1.1, 0.85, 0.5) * 0.8, shorewetcut) * color, waterColor * fogdarkness, saturate(fog / _WaterExtinction)); // adding water color fog
 

@@ -26,6 +26,9 @@ public class Water : MonoBehaviour
 	[SerializeField]
 	Material groundMaterial;
 
+	[SerializeField]
+	Light sunLight;
+
 	Camera reflectionCamera;
 	Dictionary<Camera, RenderTexture> reflTextures = new Dictionary<Camera, RenderTexture>();
 	Vector2Int currentTextureDimensions;
@@ -112,6 +115,17 @@ public class Water : MonoBehaviour
 
 	void UpdateMaterial()
 	{
+		if(!sunLight)
+			sunLight = FindObjectOfType<Light>();
+
+		// make up our own light direction if no light could be found
+		// (just avoids tedious null checks later on)
+		var lightDir = sunLight ? sunLight.transform.forward : -Vector3.one.normalized;
+		var transmittance = WaterUtility.GetTransmittance(lightDir, settings.sunExtinction.ToVector3());
+		
+		float sunFade = Mathf.Clamp01((.1f - lightDir.y) * 10);
+		float scatterFade = Mathf.Clamp01((.15f - lightDir.y) * 4);
+		
 		if(surfaceMaterial)
 		{
 			surfaceMaterial.SetTexture("_NormalTex", settings.normalTexture);
@@ -125,7 +139,9 @@ public class Water : MonoBehaviour
 			surfaceMaterial.SetFloat("_RefrDistortionAmount", settings.refractionDistortionAmount);
 			surfaceMaterial.SetFloat("_AberrationAmount", settings.aberrationAmount);
 			surfaceMaterial.SetColor("_WaterExtinction", settings.waterExtinction);
-			surfaceMaterial.SetColor("_SunExtinction", settings.sunExtinction);
+			surfaceMaterial.SetVector("_SunTransmittance", transmittance);
+			surfaceMaterial.SetFloat("_SunFade", sunFade);
+			surfaceMaterial.SetFloat("_ScatterFade", scatterFade);
 		}
 
 		if(groundMaterial)
@@ -135,9 +151,11 @@ public class Water : MonoBehaviour
 			groundMaterial.SetFloat("_WindSpeed", settings.windSpeed);
 			groundMaterial.SetFloat("_Visibility", settings.visibility);
 			groundMaterial.SetFloat("_WaveScale", settings.waveScale);
-			groundMaterial.SetColor("_MudExtinction", settings.waterExtinction);
+			groundMaterial.SetColor("_MudExtinction", settings.mudExtinction);
 			groundMaterial.SetColor("_WaterExtinction", settings.waterExtinction);
-			groundMaterial.SetColor("_SunExtinction", settings.sunExtinction);
+			groundMaterial.SetVector("_SunTransmittance", transmittance);
+			groundMaterial.SetFloat("_SunFade", sunFade);
+			groundMaterial.SetFloat("_ScatterFade", scatterFade);
 		}
 	}
 

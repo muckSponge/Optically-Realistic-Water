@@ -112,5 +112,9 @@ MonoBehaviour:
     reflectionDistortionAmount: 0.03
     refractionDistortionAmount: 0.04
     aberrationAmount: 0.002
+    mudExtinction: {r: 1, g: 0.7, b: 0.5, a: 1}
+    waterExtinction: {r: 0.6, g: 0.8, b: 1, a: 1}
+    sunExtinction: {r: 0.45, g: 0.55, b: 0.7, a: 1}
   surfaceMaterial: {fileID: 2100000, guid: 784f7b1ea93064cb79f69935ad0efad4, type: 2}
   groundMaterial: {fileID: 2100000, guid: 06618ef051ba8422a85c276d05b5be98, type: 2}
+  sunLight: {fileID: 0}
